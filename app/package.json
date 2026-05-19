@@ -1,0 +1,54 @@
+{
+  "name": "focus-guardian",
+  "version": "0.1.0",
+  "description": "专注守护者 - 桌面端专注监督工具 MVP",
+  "main": "out/main/index.js",
+  "author": "Focus Guardian Team",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "package:mac": "electron-vite build && electron-builder --mac --dir",
+    "dist:mac": "electron-vite build && electron-builder --mac"
+  },
+  "dependencies": {
+    "active-win": "8.2.1",
+    "electron-store": "8.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "@vitejs/plugin-react": "4.3.1",
+    "electron": "31.2.0",
+    "electron-builder": "24.13.3",
+    "electron-vite": "2.3.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "typescript": "5.5.3",
+    "vite": "5.3.3",
+    "zustand": "4.5.4"
+  },
+  "build": {
+    "appId": "com.focusguardian.app",
+    "productName": "Focus Guardian",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg"
+      ]
+    }
+  }
+}
