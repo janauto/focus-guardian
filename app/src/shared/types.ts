@@ -142,6 +142,8 @@ export interface FocusAPI {
   widgetSetMouseIgnore(ignore: boolean): Promise<void>
   /** 悬浮窗：调整窗口尺寸 */
   widgetResize(w: number, h: number): Promise<void>
+  /** 悬浮窗：通知折叠 */
+  widgetBlur(): Promise<void>
   onSnapshot(cb: (s: AppSnapshot) => void): () => void
   onNotice(cb: (n: { kind: string; message: string }) => void): () => void
 }

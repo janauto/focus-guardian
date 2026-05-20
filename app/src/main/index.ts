@@ -61,6 +61,7 @@ function createWidgetWindow(): BrowserWindow {
     alwaysOnTop: true,
     skipTaskbar: true,
     focusable: true,
+    backgroundColor: '#00000000',
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -172,10 +173,30 @@ function registerIpc(c: Controller): void {
       widgetWindow.setIgnoreMouseEvents(ignore, { forward: true })
     }
   })
-  // 悬浮窗尺寸调整（展开/收起时）
+  // 悬浮窗尺寸调整（展开/收起时），保持公仔位置不变
   ipcMain.handle('widget:resize', (_e, w: number, h: number) => {
     if (widgetWindow && !widgetWindow.isDestroyed()) {
-      widgetWindow.setSize(w, h, true)
+      const bounds = widgetWindow.getBounds()
+      // 展开时从右侧扩展（公仔在右上角不动）
+      const dx = w - bounds.width
+      const newX = bounds.x - dx
+      widgetWindow.setBounds({ x: newX, y: bounds.y, width: w, height: h }, true)
+    }
+  })
+  // 悬浮窗失焦自动折叠
+  ipcMain.handle('widget:blur', () => {
+    // 渲染层通知主进程折叠
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+      const bounds = widgetWindow.getBounds()
+      const COMPACT_W = 88
+      const COMPACT_H = 88
+      if (bounds.width > COMPACT_W) {
+        const dx = bounds.width - COMPACT_W
+        widgetWindow.setBounds(
+          { x: bounds.x + dx, y: bounds.y, width: COMPACT_W, height: COMPACT_H },
+          true
+        )
+      }
     }
   })
 }

@@ -34,7 +34,6 @@ const INTENSITY_COLOR: Record<IntensitySnapshot['level'], string> = {
   away: '#ef4444'
 }
 
-// 窗口尺寸常量
 const COMPACT_W = 88
 const COMPACT_H = 88
 const EXPANDED_W = 200
@@ -44,7 +43,7 @@ export default function Widget(): JSX.Element {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null)
   const [expanded, setExpanded] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
-  const ignoreRef = useRef(true) // 当前是否穿透
+  const ignoreRef = useRef(true)
 
   useEffect(() => {
     window.focusApi.getSnapshot().then(setSnapshot)
@@ -53,7 +52,6 @@ export default function Widget(): JSX.Element {
   }, [])
 
   // ---- 鼠标穿透逻辑 ----
-  // 默认穿透，鼠标进入交互区域时关闭穿透，离开时恢复
   const setIgnore = useCallback((ignore: boolean) => {
     if (ignore !== ignoreRef.current) {
       ignoreRef.current = ignore
@@ -62,26 +60,35 @@ export default function Widget(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    // 监听 document 级别的 mouseenter/mouseleave
-    // forward:true 会让 Electron 把 mousemove 转发给渲染层
+    const root = rootRef.current
+    if (!root) return
     const onEnter = () => setIgnore(false)
     const onLeave = () => {
+      // 展开状态下不恢复穿透（等 blur 折叠后再穿透）
       if (!expanded) setIgnore(true)
     }
-    const root = rootRef.current
-    if (root) {
-      root.addEventListener('mouseenter', onEnter)
-      root.addEventListener('mouseleave', onLeave)
-    }
+    root.addEventListener('mouseenter', onEnter)
+    root.addEventListener('mouseleave', onLeave)
     return () => {
-      if (root) {
-        root.removeEventListener('mouseenter', onEnter)
-        root.removeEventListener('mouseleave', onLeave)
-      }
+      root.removeEventListener('mouseenter', onEnter)
+      root.removeEventListener('mouseleave', onLeave)
     }
   }, [setIgnore, expanded])
 
-  // 展开/收起时调整窗口大小
+  // ---- 窗口失焦自动折叠 ----
+  useEffect(() => {
+    const onBlur = () => {
+      if (expanded) {
+        setExpanded(false)
+        window.focusApi.widgetBlur()
+        setTimeout(() => setIgnore(true), 150)
+      }
+    }
+    window.addEventListener('blur', onBlur)
+    return () => window.removeEventListener('blur', onBlur)
+  }, [expanded, setIgnore])
+
+  // 展开/收起
   const toggleExpand = useCallback(() => {
     const next = !expanded
     setExpanded(next)
@@ -90,8 +97,7 @@ export default function Widget(): JSX.Element {
       setIgnore(false)
     } else {
       window.focusApi.widgetResize(COMPACT_W, COMPACT_H)
-      // 收起后延迟恢复穿透
-      setTimeout(() => setIgnore(true), 100)
+      setTimeout(() => setIgnore(true), 150)
     }
   }, [expanded, setIgnore])
 
@@ -140,15 +146,18 @@ export default function Widget(): JSX.Element {
           </svg>
         </div>
 
-        {/* 拖拽手柄：左下角小图标 */}
+        {/* 拖拽手柄：左下角 */}
         <div className="widget-drag-grip" title="拖动我">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <circle cx="3" cy="3" r="1.5" fill="rgba(255,255,255,0.5)" />
-            <circle cx="7" cy="3" r="1.5" fill="rgba(255,255,255,0.5)" />
-            <circle cx="3" cy="7" r="1.5" fill="rgba(255,255,255,0.5)" />
-            <circle cx="7" cy="7" r="1.5" fill="rgba(255,255,255,0.5)" />
-            <circle cx="3" cy="11" r="1.5" fill="rgba(255,255,255,0.3)" />
-            <circle cx="7" cy="11" r="1.5" fill="rgba(255,255,255,0.3)" />
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="2.5" cy="2.5" r="1.2" fill="currentColor" />
+            <circle cx="6" cy="2.5" r="1.2" fill="currentColor" />
+            <circle cx="9.5" cy="2.5" r="1.2" fill="currentColor" />
+            <circle cx="2.5" cy="6" r="1.2" fill="currentColor" />
+            <circle cx="6" cy="6" r="1.2" fill="currentColor" />
+            <circle cx="9.5" cy="6" r="1.2" fill="currentColor" />
+            <circle cx="2.5" cy="9.5" r="1.2" fill="currentColor" />
+            <circle cx="6" cy="9.5" r="1.2" fill="currentColor" />
+            <circle cx="9.5" cy="9.5" r="1.2" fill="currentColor" />
           </svg>
         </div>
       </div>

@@ -22,6 +22,7 @@ const api: FocusAPI = {
     ipcRenderer.invoke('widget:setMouseIgnore', ignore) as Promise<void>,
   widgetResize: (w: number, h: number) =>
     ipcRenderer.invoke('widget:resize', w, h) as Promise<void>,
+  widgetBlur: () => ipcRenderer.invoke('widget:blur') as Promise<void>,
   onSnapshot(cb) {
     const handler = (_e: unknown, s: AppSnapshot) => cb(s)
     ipcRenderer.on('snapshot', handler)
