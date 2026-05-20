@@ -1,0 +1,358 @@
+/* === Focus Guardian 桌面悬浮窗样式 === */
+
+:root {
+  --w-bg: rgba(15, 23, 42, 0.92);
+  --w-border: rgba(255, 255, 255, 0.1);
+  --w-text: #e2e8f0;
+  --w-text-2: #94a3b8;
+  --w-primary: #6366f1;
+  --w-success: #10b981;
+  --w-warn: #f59e0b;
+  --w-danger: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: transparent;
+  color: var(--w-text);
+  font-size: 12px;
+  user-select: none;
+}
+
+/* ========== Widget Root ========== */
+
+.widget-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.widget-root.compact {
+  width: 80px;
+  height: 80px;
+}
+
+.widget-root.expanded {
+  width: 200px;
+  height: auto;
+  min-height: 80px;
+}
+
+/* ========== Drag Handle ========== */
+
+.widget-drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  -webkit-app-region: drag;
+  z-index: 10;
+  cursor: grab;
+}
+
+/* ========== Pet (主体圆形) ========== */
+
+.widget-pet {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--w-bg);
+  border: 2px solid var(--w-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(99, 102, 241, 0.15);
+  transition: all 0.3s ease;
+  z-index: 5;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.widget-pet:hover {
+  transform: scale(1.08);
+  box-shadow:
+    0 6px 28px rgba(0, 0, 0, 0.6),
+    0 0 0 2px rgba(99, 102, 241, 0.3);
+}
+
+.widget-pet:active {
+  transform: scale(0.95);
+}
+
+.pet-char {
+  font-size: 36px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  animation: widget-float 3s ease-in-out infinite;
+}
+
+.pet-state-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 16px;
+  background: var(--w-bg);
+  border: 1px solid var(--w-border);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 强度环 */
+.intensity-ring {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  pointer-events: none;
+}
+.ring-fill {
+  transition: stroke-dasharray 0.6s ease, stroke 0.4s ease;
+}
+
+/* ========== 状态动画 ========== */
+
+@keyframes widget-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.state-focused .pet-char {
+  animation: widget-float 3s ease-in-out infinite;
+}
+.state-distracted .pet-char {
+  animation: widget-shake 0.4s ease-in-out infinite;
+}
+.state-inactive .pet-char {
+  animation: widget-doze 4s ease-in-out infinite;
+  opacity: 0.7;
+}
+.state-away .pet-char {
+  animation: none;
+  opacity: 0.4;
+  filter: saturate(0.3);
+}
+.state-break .pet-char {
+  animation: widget-breathe 4s ease-in-out infinite;
+}
+
+@keyframes widget-shake {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+@keyframes widget-doze {
+  0%, 100% { transform: rotate(-2deg) translateY(0); }
+  50% { transform: rotate(2deg) translateY(-2px); }
+}
+@keyframes widget-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+/* 分心时公仔边框变红 */
+.state-distracted .widget-pet {
+  border-color: var(--w-danger);
+  box-shadow:
+    0 4px 20px rgba(239, 68, 68, 0.3),
+    0 0 0 2px rgba(239, 68, 68, 0.2);
+  animation: widget-pulse-red 1.5s ease-in-out infinite;
+}
+
+@keyframes widget-pulse-red {
+  0%, 100% { box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3), 0 0 0 2px rgba(239, 68, 68, 0.2); }
+  50% { box-shadow: 0 4px 28px rgba(239, 68, 68, 0.5), 0 0 0 4px rgba(239, 68, 68, 0.3); }
+}
+
+/* 专注时公仔边框变绿 */
+.state-focused .widget-pet {
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow:
+    0 4px 20px rgba(16, 185, 129, 0.15),
+    0 0 0 1px rgba(16, 185, 129, 0.2);
+}
+
+/* 休息时公仔边框变蓝 */
+.state-break .widget-pet {
+  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow:
+    0 4px 20px rgba(6, 182, 212, 0.15),
+    0 0 0 1px rgba(6, 182, 212, 0.2);
+}
+
+/* ========== 展开面板 ========== */
+
+.widget-panel {
+  margin-top: 8px;
+  width: 180px;
+  background: var(--w-bg);
+  border: 1px solid var(--w-border);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: panel-in 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-app-region: no-drag;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 状态行 */
+.wp-state {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.wp-label {
+  font-weight: 600;
+  font-size: 13px;
+}
+.wp-duration {
+  color: var(--w-text-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 番茄钟 */
+.wp-pomo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.wp-pomo-icon {
+  font-size: 14px;
+}
+.wp-pomo-time {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+
+/* 统计 */
+.wp-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.wp-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 6px 4px;
+}
+.wp-stat-num {
+  font-size: 14px;
+  font-weight: 700;
+}
+.wp-stat-label {
+  font-size: 10px;
+  color: var(--w-text-2);
+}
+
+/* 强度条 */
+.wp-intensity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.wp-int-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.wp-int-fill {
+  height: 100%;
+  transition: width 0.4s ease, background 0.4s ease;
+  border-radius: 2px;
+}
+.wp-int-label {
+  font-size: 10px;
+  color: var(--w-text-2);
+  text-align: right;
+}
+
+/* 操作按钮 */
+.wp-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.wp-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--w-border);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.wp-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: scale(1.1);
+}
+.wp-btn:active {
+  transform: scale(0.9);
+}
+.wp-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ========== Loading ========== */
+
+.widget-root.loading {
+  width: 72px;
+  height: 72px;
+}
+.widget-root.loading .widget-pet {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

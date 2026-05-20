@@ -34,6 +34,7 @@ export class Controller {
   private lastInactiveNoticeAt = 0
   private snapshotPusher: NodeJS.Timeout | null = null
   private win: BrowserWindow | null = null
+  private widgetWin: BrowserWindow | null = null
 
   constructor() {
     this.store = new AppStore()
@@ -64,6 +65,10 @@ export class Controller {
 
   attachWindow(win: BrowserWindow): void {
     this.win = win
+  }
+
+  attachWidget(win: BrowserWindow): void {
+    this.widgetWin = win
   }
 
   /** 启动专注会话 */
@@ -336,8 +341,13 @@ export class Controller {
   }
 
   private pushSnapshot(): void {
-    if (!this.win || this.win.isDestroyed()) return
-    this.win.webContents.send('snapshot', this.getSnapshot())
+    const snap = this.getSnapshot()
+    if (this.win && !this.win.isDestroyed()) {
+      this.win.webContents.send('snapshot', snap)
+    }
+    if (this.widgetWin && !this.widgetWin.isDestroyed()) {
+      this.widgetWin.webContents.send('snapshot', snap)
+    }
   }
 
   /** 跨日：streak 维护 */

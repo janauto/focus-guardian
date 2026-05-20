@@ -1,12 +1,13 @@
 // Electron 主进程入口
 
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, screen, shell } from 'electron'
 import { join } from 'node:path'
 import { Controller } from './controller'
 import type { AppCategory, Settings } from '../shared/types'
 
 let controller: Controller | null = null
 let mainWindow: BrowserWindow | null = null
+let widgetWindow: BrowserWindow | null = null
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -44,6 +45,47 @@ function createWindow(): BrowserWindow {
   return win
 }
 
+function createWidgetWindow(): BrowserWindow {
+  const { width: screenW } = screen.getPrimaryDisplay().workAreaSize
+  const widgetSize = 200 // 展开时最大宽度
+  const win = new BrowserWindow({
+    width: widgetSize,
+    height: 320,
+    x: screenW - widgetSize - 24,
+    y: 80,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    hasShadow: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    focusable: false,
+    show: false,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      sandbox: false,
+      nodeIntegration: false
+    }
+  })
+
+  // 允许点击穿透空白区域（仅 macOS）
+  win.setIgnoreMouseEvents(false)
+  // macOS：在所有桌面/全屏应用上方
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
+  win.on('ready-to-show', () => win.showInactive())
+
+  const devUrl = process.env['ELECTRON_RENDERER_URL']
+  if (devUrl) {
+    win.loadURL(`${devUrl}#widget`)
+  } else {
+    win.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'widget' })
+  }
+
+  return win
+}
+
 function registerIpc(c: Controller): void {
   ipcMain.handle('app:getSnapshot', () => c.getSnapshot())
   ipcMain.handle('app:startSession', () => c.startSession())
@@ -55,6 +97,18 @@ function registerIpc(c: Controller): void {
   ipcMain.handle('app:classifyApp', (_e, name: string, cat: AppCategory) => c.classifyAppManually(name, cat))
   ipcMain.handle('app:feedPet', () => c.feedPet())
   ipcMain.handle('app:resetToday', () => c.resetToday())
+  ipcMain.handle('app:showMain', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+  ipcMain.handle('app:toggleWidget', () => {
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+      if (widgetWindow.isVisible()) widgetWindow.hide()
+      else widgetWindow.show()
+    }
+  })
 }
 
 app.whenReady().then(() => {
@@ -62,12 +116,16 @@ app.whenReady().then(() => {
   registerIpc(controller)
 
   mainWindow = createWindow()
+  widgetWindow = createWidgetWindow()
   controller.attachWindow(mainWindow)
+  controller.attachWidget(widgetWindow)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createWindow()
+      widgetWindow = createWidgetWindow()
       controller!.attachWindow(mainWindow)
+      controller!.attachWidget(widgetWindow)
     }
   })
 })

@@ -136,6 +136,8 @@ export interface FocusAPI {
   classifyApp(appName: string, category: AppCategory): Promise<Settings>
   feedPet(): Promise<PetState>
   resetToday(): Promise<void>
+  showMain(): Promise<void>
+  toggleWidget(): Promise<void>
   onSnapshot(cb: (s: AppSnapshot) => void): () => void
   onNotice(cb: (n: { kind: string; message: string }) => void): () => void
 }
