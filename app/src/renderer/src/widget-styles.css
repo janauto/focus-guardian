@@ -1,6 +1,19 @@
 /* === Focus Guardian 桌面悬浮窗样式 === */
 /* 设计：QQ 宠物风格 — 无背景泄漏、紧凑、边缘吸附 */
 
+/* 最高优先级：覆盖主 app styles.css 中的所有背景色 */
+html[data-widget],
+html[data-widget] body,
+html[data-widget] #root,
+html[data-widget] .app-root,
+html[data-widget] .app-loading {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

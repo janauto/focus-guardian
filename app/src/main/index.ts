@@ -71,6 +71,8 @@ function createWidgetWindow(): BrowserWindow {
     }
   })
 
+  // 确保完全透明（macOS 需要多重保障）
+  win.setBackgroundColor('#00000000')
   // 默认穿透鼠标事件，渲染层会通过 IPC 动态切换
   win.setIgnoreMouseEvents(true, { forward: true })
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
