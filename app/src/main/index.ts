@@ -169,17 +169,16 @@ function registerIpc(c: Controller): void {
       else widgetWindow.show()
     }
   })
-  // 悬浮窗鼠标穿透控制：渲染层检测到鼠标在交互区域时关闭穿透
+  // 悬浮窗鼠标穿透控制
   ipcMain.handle('widget:setMouseIgnore', (_e, ignore: boolean) => {
     if (widgetWindow && !widgetWindow.isDestroyed()) {
       widgetWindow.setIgnoreMouseEvents(ignore, { forward: true })
     }
   })
-  // 悬浮窗尺寸调整（展开/收起时），保持公仔位置不变
+  // 悬浮窗尺寸调整（展开/收起时），保持公仔右上角位置不变
   ipcMain.handle('widget:resize', (_e, w: number, h: number) => {
     if (widgetWindow && !widgetWindow.isDestroyed()) {
       const bounds = widgetWindow.getBounds()
-      // 展开时从右侧扩展（公仔在右上角不动）
       const dx = w - bounds.width
       const newX = bounds.x - dx
       widgetWindow.setBounds({ x: newX, y: bounds.y, width: w, height: h }, true)
@@ -187,7 +186,6 @@ function registerIpc(c: Controller): void {
   })
   // 悬浮窗失焦自动折叠
   ipcMain.handle('widget:blur', () => {
-    // 渲染层通知主进程折叠
     if (widgetWindow && !widgetWindow.isDestroyed()) {
       const bounds = widgetWindow.getBounds()
       const COMPACT_W = 88
@@ -199,6 +197,49 @@ function registerIpc(c: Controller): void {
           true
         )
       }
+    }
+  })
+  // JS 手动拖拽：渲染层发送 delta，主进程移动窗口
+  ipcMain.handle('widget:moveBy', (_e, dx: number, dy: number) => {
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+      const [x, y] = widgetWindow.getPosition()
+      widgetWindow.setPosition(x + dx, y + dy, false)
+    }
+  })
+  // 拖拽结束：触发吸附检测 + 边缘停靠检测
+  ipcMain.handle('widget:dragEnd', () => {
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+      const bounds = widgetWindow.getBounds()
+      const display = screen.getDisplayMatching(bounds)
+      const work = display.workArea
+      const DOCK_THRESHOLD = 20
+      // 检测是否贴右边缘 → 进入 docked 模式
+      const distToRight = work.x + work.width - (bounds.x + bounds.width)
+      if (distToRight < DOCK_THRESHOLD) {
+        // 停靠到右边缘
+        const DOCK_W = 12
+        const DOCK_H = 120
+        const dockX = work.x + work.width - DOCK_W
+        const dockY = bounds.y
+        widgetWindow.setBounds({ x: dockX, y: dockY, width: DOCK_W, height: DOCK_H }, true)
+        widgetWindow.webContents.send('widget:docked', true)
+        return
+      }
+      // 否则正常吸附
+      snapToEdge(widgetWindow)
+    }
+  })
+  // 从停靠模式恢复
+  ipcMain.handle('widget:undock', () => {
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+      const bounds = widgetWindow.getBounds()
+      const display = screen.getDisplayMatching(bounds)
+      const work = display.workArea
+      const COMPACT_W = 88
+      const COMPACT_H = 88
+      const newX = work.x + work.width - COMPACT_W - 8
+      widgetWindow.setBounds({ x: newX, y: bounds.y, width: COMPACT_W, height: COMPACT_H }, true)
+      widgetWindow.webContents.send('widget:docked', false)
     }
   })
 }

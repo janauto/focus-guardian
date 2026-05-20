@@ -23,6 +23,15 @@ const api: FocusAPI = {
   widgetResize: (w: number, h: number) =>
     ipcRenderer.invoke('widget:resize', w, h) as Promise<void>,
   widgetBlur: () => ipcRenderer.invoke('widget:blur') as Promise<void>,
+  widgetMoveBy: (dx: number, dy: number) =>
+    ipcRenderer.invoke('widget:moveBy', dx, dy) as Promise<void>,
+  widgetDragEnd: () => ipcRenderer.invoke('widget:dragEnd') as Promise<void>,
+  widgetUndock: () => ipcRenderer.invoke('widget:undock') as Promise<void>,
+  onDocked(cb) {
+    const handler = (_e: unknown, docked: boolean) => cb(docked)
+    ipcRenderer.on('widget:docked', handler)
+    return () => ipcRenderer.removeListener('widget:docked', handler)
+  },
   onSnapshot(cb) {
     const handler = (_e: unknown, s: AppSnapshot) => cb(s)
     ipcRenderer.on('snapshot', handler)

@@ -42,13 +42,18 @@ const EXPANDED_H = 320
 export default function Widget(): JSX.Element {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const [docked, setDocked] = useState(false)
+  const [gripVisible, setGripVisible] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const ignoreRef = useRef(true)
+  const draggingRef = useRef(false)
+  const dragStartRef = useRef({ x: 0, y: 0 })
 
   useEffect(() => {
     window.focusApi.getSnapshot().then(setSnapshot)
-    const off = window.focusApi.onSnapshot(setSnapshot)
-    return off
+    const offSnap = window.focusApi.onSnapshot(setSnapshot)
+    const offDock = window.focusApi.onDocked(setDocked)
+    return () => { offSnap(); offDock() }
   }, [])
 
   // ---- 鼠标穿透逻辑 ----
@@ -64,8 +69,7 @@ export default function Widget(): JSX.Element {
     if (!root) return
     const onEnter = () => setIgnore(false)
     const onLeave = () => {
-      // 展开状态下不恢复穿透（等 blur 折叠后再穿透）
-      if (!expanded) setIgnore(true)
+      if (!expanded && !draggingRef.current) setIgnore(true)
     }
     root.addEventListener('mouseenter', onEnter)
     root.addEventListener('mouseleave', onLeave)
@@ -88,8 +92,37 @@ export default function Widget(): JSX.Element {
     return () => window.removeEventListener('blur', onBlur)
   }, [expanded, setIgnore])
 
+  // ---- JS 手动拖拽（替代 -webkit-app-region: drag） ----
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    draggingRef.current = true
+    dragStartRef.current = { x: e.screenX, y: e.screenY }
+    setIgnore(false)
+
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.screenX - dragStartRef.current.x
+      const dy = ev.screenY - dragStartRef.current.y
+      dragStartRef.current = { x: ev.screenX, y: ev.screenY }
+      window.focusApi.widgetMoveBy(dx, dy)
+    }
+    const onUp = () => {
+      draggingRef.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      window.focusApi.widgetDragEnd()
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [setIgnore])
+
   // 展开/收起
   const toggleExpand = useCallback(() => {
+    if (docked) {
+      // 从停靠模式恢复
+      window.focusApi.widgetUndock()
+      return
+    }
     const next = !expanded
     setExpanded(next)
     if (next) {
@@ -99,7 +132,7 @@ export default function Widget(): JSX.Element {
       window.focusApi.widgetResize(COMPACT_W, COMPACT_H)
       setTimeout(() => setIgnore(true), 150)
     }
-  }, [expanded, setIgnore])
+  }, [expanded, docked, setIgnore])
 
   if (!snapshot) {
     return (
@@ -116,17 +149,42 @@ export default function Widget(): JSX.Element {
   const pomoRemain = pomodoro.phase !== 'stopped' ? formatTime(pomodoro.remainingSeconds) : null
   const intensityColor = INTENSITY_COLOR[intensity.level]
 
+  // 番茄钟进度百分比
+  const pomoPct = pomodoro.totalSeconds > 0
+    ? Math.round(((pomodoro.totalSeconds - pomodoro.remainingSeconds) / pomodoro.totalSeconds) * 100)
+    : 0
+
+  // ========== 停靠模式：只显示一条竖向进度条 ==========
+  if (docked) {
+    return (
+      <div
+        className="widget-root docked"
+        ref={rootRef}
+        onClick={toggleExpand}
+      >
+        <div className="dock-bar">
+          <div className="dock-fill" style={{ height: `${pomoPct}%`, background: intensityColor }} />
+        </div>
+        <div className="dock-time">{pomoRemain || `${focusMin}m`}</div>
+      </div>
+    )
+  }
+
+  // ========== 正常模式 ==========
   return (
     <div
       className={`widget-root state-${state} ${expanded ? 'expanded' : 'compact'}`}
       ref={rootRef}
     >
       {/* 公仔主体 */}
-      <div className="widget-pet-container">
+      <div
+        className="widget-pet-container"
+        onMouseEnter={() => setGripVisible(true)}
+        onMouseLeave={() => { if (!draggingRef.current) setGripVisible(false) }}
+      >
         <div className="widget-pet-body" onClick={toggleExpand}>
           <span className="pet-char">{petEmoji}</span>
           <span className="pet-state-badge">{stateEmoji}</span>
-          {/* 强度环 */}
           <svg className="intensity-ring" viewBox="0 0 100 100">
             <circle
               className="ring-bg"
@@ -146,8 +204,12 @@ export default function Widget(): JSX.Element {
           </svg>
         </div>
 
-        {/* 拖拽手柄：左下角 */}
-        <div className="widget-drag-grip" title="拖动我">
+        {/* 拖拽手柄：JS 拖拽，不用 -webkit-app-region */}
+        <div
+          className={`widget-drag-grip ${gripVisible ? 'visible' : ''}`}
+          onMouseDown={onDragStart}
+          title="拖动我"
+        >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <circle cx="2.5" cy="2.5" r="1.2" fill="currentColor" />
             <circle cx="6" cy="2.5" r="1.2" fill="currentColor" />

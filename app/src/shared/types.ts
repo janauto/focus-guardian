@@ -144,6 +144,14 @@ export interface FocusAPI {
   widgetResize(w: number, h: number): Promise<void>
   /** 悬浮窗：通知折叠 */
   widgetBlur(): Promise<void>
+  /** 悬浮窗：手动拖拽移动 */
+  widgetMoveBy(dx: number, dy: number): Promise<void>
+  /** 悬浮窗：拖拽结束（触发吸附/停靠检测） */
+  widgetDragEnd(): Promise<void>
+  /** 悬浮窗：从停靠模式恢复 */
+  widgetUndock(): Promise<void>
+  /** 监听停靠状态变化 */
+  onDocked(cb: (docked: boolean) => void): () => void
   onSnapshot(cb: (s: AppSnapshot) => void): () => void
   onNotice(cb: (n: { kind: string; message: string }) => void): () => void
 }
