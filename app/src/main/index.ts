@@ -59,7 +59,7 @@ function createWidgetWindow(): BrowserWindow {
     hasShadow: false,
     alwaysOnTop: true,
     skipTaskbar: true,
-    focusable: false,
+    focusable: true,
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -73,6 +73,8 @@ function createWidgetWindow(): BrowserWindow {
   win.setIgnoreMouseEvents(false)
   // macOS：在所有桌面/全屏应用上方
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  // macOS：设为 panel 级别，不会抢走其他应用的焦点
+  win.setAlwaysOnTop(true, 'floating')
 
   win.on('ready-to-show', () => win.showInactive())
 
