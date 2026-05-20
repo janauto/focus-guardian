@@ -337,7 +337,12 @@ export class Controller {
   }
 
   private sendNotice(kind: string, message: string): void {
-    this.win?.webContents.send('notice', { kind, message })
+    if (this.win && !this.win.isDestroyed()) {
+      this.win.webContents.send('notice', { kind, message })
+    }
+    if (this.widgetWin && !this.widgetWin.isDestroyed()) {
+      this.widgetWin.webContents.send('notice', { kind, message })
+    }
   }
 
   private pushSnapshot(): void {
