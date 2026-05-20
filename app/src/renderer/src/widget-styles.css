@@ -1,4 +1,5 @@
 /* === Focus Guardian 桌面悬浮窗样式 === */
+/* 设计原则：QQ 宠物风格 — 紧凑不溢出、边缘吸附、拖拽有反馈 */
 
 :root {
   --w-bg: rgba(15, 23, 42, 0.92);
@@ -20,56 +21,50 @@
 html, body, #root {
   height: 100%;
   overflow: hidden;
+  /* 关键：让透明区域真正透明 */
+  background: transparent !important;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background: transparent;
+  background: transparent !important;
   color: var(--w-text);
   font-size: 12px;
   user-select: none;
 }
 
 /* ========== Widget Root ========== */
+/* 不设 -webkit-app-region: drag，由拖拽手柄单独控制 */
 
 .widget-root {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  /* 整个悬浮窗默认可拖拽 */
-  -webkit-app-region: drag;
+  padding: 4px;
 }
 
 .widget-root.compact {
-  width: 80px;
-  height: 80px;
+  width: 88px;
+  height: 88px;
 }
 
 .widget-root.expanded {
   width: 200px;
   height: auto;
-  min-height: 80px;
 }
 
-/* ========== Drag Handle ========== */
+/* ========== Pet Container ========== */
 
-.widget-drag-handle {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
-  -webkit-app-region: drag;
-  z-index: 10;
-  cursor: grab;
+.widget-pet-container {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  flex-shrink: 0;
 }
 
-/* ========== Pet (主体圆形) ========== */
-
-.widget-pet {
+/* 公仔主体 */
+.widget-pet-body {
   position: relative;
   width: 72px;
   height: 72px;
@@ -81,28 +76,24 @@ body {
   justify-content: center;
   cursor: pointer;
   box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.5),
+    0 4px 16px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(99, 102, 241, 0.15);
-  transition: all 0.3s ease;
-  z-index: 5;
-  flex-shrink: 0;
-  /* 公仔可点击，不参与拖拽 */
-  -webkit-app-region: no-drag;
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
 }
 
-.widget-pet:hover {
-  transform: scale(1.08);
+.widget-pet-body:hover {
+  transform: scale(1.06);
   box-shadow:
-    0 6px 28px rgba(0, 0, 0, 0.6),
+    0 6px 24px rgba(0, 0, 0, 0.6),
     0 0 0 2px rgba(99, 102, 241, 0.3);
 }
 
-.widget-pet:active {
-  transform: scale(0.95);
+.widget-pet-body:active {
+  transform: scale(0.94);
 }
 
 .pet-char {
-  font-size: 36px;
+  font-size: 34px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
   animation: widget-float 3s ease-in-out infinite;
 }
@@ -111,12 +102,12 @@ body {
   position: absolute;
   bottom: -2px;
   right: -2px;
-  font-size: 16px;
+  font-size: 14px;
   background: var(--w-bg);
   border: 1px solid var(--w-border);
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -132,6 +123,40 @@ body {
 }
 .ring-fill {
   transition: stroke-dasharray 0.6s ease, stroke 0.4s ease;
+}
+
+/* ========== 拖拽手柄（左下角） ========== */
+
+.widget-drag-grip {
+  position: absolute;
+  bottom: -2px;
+  left: -2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--w-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 这是唯一的拖拽区域 */
+  -webkit-app-region: drag;
+  cursor: grab;
+  opacity: 0.5;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.widget-drag-grip:hover {
+  opacity: 1;
+  transform: scale(1.15);
+  background: rgba(99, 102, 241, 0.3);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.widget-drag-grip:active {
+  cursor: grabbing;
+  transform: scale(0.95);
+  background: rgba(99, 102, 241, 0.5);
 }
 
 /* ========== 状态动画 ========== */
@@ -173,33 +198,33 @@ body {
   50% { transform: scale(1.06); }
 }
 
-/* 分心时公仔边框变红 */
-.state-distracted .widget-pet {
+/* 分心时公仔边框变红 + 脉冲 */
+.state-distracted .widget-pet-body {
   border-color: var(--w-danger);
   box-shadow:
-    0 4px 20px rgba(239, 68, 68, 0.3),
+    0 4px 16px rgba(239, 68, 68, 0.3),
     0 0 0 2px rgba(239, 68, 68, 0.2);
   animation: widget-pulse-red 1.5s ease-in-out infinite;
 }
 
 @keyframes widget-pulse-red {
-  0%, 100% { box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3), 0 0 0 2px rgba(239, 68, 68, 0.2); }
-  50% { box-shadow: 0 4px 28px rgba(239, 68, 68, 0.5), 0 0 0 4px rgba(239, 68, 68, 0.3); }
+  0%, 100% { box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3), 0 0 0 2px rgba(239, 68, 68, 0.2); }
+  50% { box-shadow: 0 4px 24px rgba(239, 68, 68, 0.5), 0 0 0 4px rgba(239, 68, 68, 0.3); }
 }
 
 /* 专注时公仔边框变绿 */
-.state-focused .widget-pet {
+.state-focused .widget-pet-body {
   border-color: rgba(16, 185, 129, 0.5);
   box-shadow:
-    0 4px 20px rgba(16, 185, 129, 0.15),
+    0 4px 16px rgba(16, 185, 129, 0.15),
     0 0 0 1px rgba(16, 185, 129, 0.2);
 }
 
 /* 休息时公仔边框变蓝 */
-.state-break .widget-pet {
+.state-break .widget-pet-body {
   border-color: rgba(6, 182, 212, 0.5);
   box-shadow:
-    0 4px 20px rgba(6, 182, 212, 0.15),
+    0 4px 16px rgba(6, 182, 212, 0.15),
     0 0 0 1px rgba(6, 182, 212, 0.2);
 }
 
@@ -217,8 +242,6 @@ body {
   gap: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   animation: panel-in 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  /* 面板内可交互，不参与拖拽 */
-  -webkit-app-region: no-drag;
 }
 
 @keyframes panel-in {
@@ -350,10 +373,13 @@ body {
 /* ========== Loading ========== */
 
 .widget-root.loading {
-  width: 72px;
-  height: 72px;
+  width: 88px;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.widget-root.loading .widget-pet {
+.widget-root.loading .widget-pet-body {
   animation: spin 1s linear infinite;
 }
 

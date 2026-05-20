@@ -138,6 +138,10 @@ export interface FocusAPI {
   resetToday(): Promise<void>
   showMain(): Promise<void>
   toggleWidget(): Promise<void>
+  /** 悬浮窗：设置鼠标穿透状态 */
+  widgetSetMouseIgnore(ignore: boolean): Promise<void>
+  /** 悬浮窗：调整窗口尺寸 */
+  widgetResize(w: number, h: number): Promise<void>
   onSnapshot(cb: (s: AppSnapshot) => void): () => void
   onNotice(cb: (n: { kind: string; message: string }) => void): () => void
 }

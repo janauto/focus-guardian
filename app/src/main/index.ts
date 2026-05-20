@@ -47,11 +47,12 @@ function createWindow(): BrowserWindow {
 
 function createWidgetWindow(): BrowserWindow {
   const { width: screenW } = screen.getPrimaryDisplay().workAreaSize
-  const widgetSize = 200 // 展开时最大宽度
+  const WIDGET_W = 88 // compact 模式宽度（公仔 72 + padding）
+  const WIDGET_H = 88
   const win = new BrowserWindow({
-    width: widgetSize,
-    height: 320,
-    x: screenW - widgetSize - 24,
+    width: WIDGET_W,
+    height: WIDGET_H,
+    x: screenW - WIDGET_W - 12,
     y: 80,
     frame: false,
     transparent: true,
@@ -69,14 +70,19 @@ function createWidgetWindow(): BrowserWindow {
     }
   })
 
-  // 允许点击穿透空白区域（仅 macOS）
-  win.setIgnoreMouseEvents(false)
-  // macOS：在所有桌面/全屏应用上方
+  // 默认穿透鼠标事件，渲染层会通过 IPC 动态切换
+  win.setIgnoreMouseEvents(true, { forward: true })
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  // macOS：设为 panel 级别，不会抢走其他应用的焦点
   win.setAlwaysOnTop(true, 'floating')
 
   win.on('ready-to-show', () => win.showInactive())
+
+  // ---- 边缘吸附 + 防溢出 ----
+  let snapTimer: NodeJS.Timeout | null = null
+  win.on('moved', () => {
+    if (snapTimer) clearTimeout(snapTimer)
+    snapTimer = setTimeout(() => snapToEdge(win), 300)
+  })
 
   const devUrl = process.env['ELECTRON_RENDERER_URL']
   if (devUrl) {
@@ -86,6 +92,55 @@ function createWidgetWindow(): BrowserWindow {
   }
 
   return win
+}
+
+/** 边缘吸附：如果窗口距屏幕边缘 < 40px，自动贴边（8px 间距） */
+function snapToEdge(win: BrowserWindow): void {
+  if (win.isDestroyed()) return
+  const bounds = win.getBounds()
+  const display = screen.getDisplayMatching(bounds)
+  const work = display.workArea
+  const SNAP_THRESHOLD = 40
+  const EDGE_GAP = 8
+
+  let { x, y } = bounds
+
+  // 左边缘
+  if (x - work.x < SNAP_THRESHOLD) x = work.x + EDGE_GAP
+  // 右边缘
+  if (work.x + work.width - (x + bounds.width) < SNAP_THRESHOLD)
+    x = work.x + work.width - bounds.width - EDGE_GAP
+  // 上边缘
+  if (y - work.y < SNAP_THRESHOLD) y = work.y + EDGE_GAP
+  // 下边缘
+  if (work.y + work.height - (y + bounds.height) < SNAP_THRESHOLD)
+    y = work.y + work.height - bounds.height - EDGE_GAP
+
+  // 防溢出：clamp 到屏幕内
+  x = Math.max(work.x, Math.min(x, work.x + work.width - bounds.width))
+  y = Math.max(work.y, Math.min(y, work.y + work.height - bounds.height))
+
+  if (x !== bounds.x || y !== bounds.y) {
+    // 平滑移动（分 5 步缓动）
+    animateMove(win, bounds.x, bounds.y, x, y)
+  }
+}
+
+function animateMove(win: BrowserWindow, fromX: number, fromY: number, toX: number, toY: number): void {
+  const STEPS = 6
+  const INTERVAL = 16 // ~60fps
+  let step = 0
+  const timer = setInterval(() => {
+    if (win.isDestroyed()) { clearInterval(timer); return }
+    step++
+    const t = step / STEPS
+    // ease-out cubic
+    const ease = 1 - Math.pow(1 - t, 3)
+    const cx = Math.round(fromX + (toX - fromX) * ease)
+    const cy = Math.round(fromY + (toY - fromY) * ease)
+    win.setPosition(cx, cy, false)
+    if (step >= STEPS) clearInterval(timer)
+  }, INTERVAL)
 }
 
 function registerIpc(c: Controller): void {
@@ -109,6 +164,18 @@ function registerIpc(c: Controller): void {
     if (widgetWindow && !widgetWindow.isDestroyed()) {
       if (widgetWindow.isVisible()) widgetWindow.hide()
       else widgetWindow.show()
+    }
+  })
+  // 悬浮窗鼠标穿透控制：渲染层检测到鼠标在交互区域时关闭穿透
+  ipcMain.handle('widget:setMouseIgnore', (_e, ignore: boolean) => {
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+      widgetWindow.setIgnoreMouseEvents(ignore, { forward: true })
+    }
+  })
+  // 悬浮窗尺寸调整（展开/收起时）
+  ipcMain.handle('widget:resize', (_e, w: number, h: number) => {
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+      widgetWindow.setSize(w, h, true)
     }
   })
 }

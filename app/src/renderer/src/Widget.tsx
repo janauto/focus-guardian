@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppSnapshot, FocusState, PetState, IntensitySnapshot } from '../../shared/types'
 
 const STAGE_EMOJI: Record<PetState['stage'], string> = {
@@ -34,9 +34,17 @@ const INTENSITY_COLOR: Record<IntensitySnapshot['level'], string> = {
   away: '#ef4444'
 }
 
+// 窗口尺寸常量
+const COMPACT_W = 88
+const COMPACT_H = 88
+const EXPANDED_W = 200
+const EXPANDED_H = 320
+
 export default function Widget(): JSX.Element {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const ignoreRef = useRef(true) // 当前是否穿透
 
   useEffect(() => {
     window.focusApi.getSnapshot().then(setSnapshot)
@@ -44,10 +52,53 @@ export default function Widget(): JSX.Element {
     return off
   }, [])
 
+  // ---- 鼠标穿透逻辑 ----
+  // 默认穿透，鼠标进入交互区域时关闭穿透，离开时恢复
+  const setIgnore = useCallback((ignore: boolean) => {
+    if (ignore !== ignoreRef.current) {
+      ignoreRef.current = ignore
+      window.focusApi.widgetSetMouseIgnore(ignore)
+    }
+  }, [])
+
+  useEffect(() => {
+    // 监听 document 级别的 mouseenter/mouseleave
+    // forward:true 会让 Electron 把 mousemove 转发给渲染层
+    const onEnter = () => setIgnore(false)
+    const onLeave = () => {
+      if (!expanded) setIgnore(true)
+    }
+    const root = rootRef.current
+    if (root) {
+      root.addEventListener('mouseenter', onEnter)
+      root.addEventListener('mouseleave', onLeave)
+    }
+    return () => {
+      if (root) {
+        root.removeEventListener('mouseenter', onEnter)
+        root.removeEventListener('mouseleave', onLeave)
+      }
+    }
+  }, [setIgnore, expanded])
+
+  // 展开/收起时调整窗口大小
+  const toggleExpand = useCallback(() => {
+    const next = !expanded
+    setExpanded(next)
+    if (next) {
+      window.focusApi.widgetResize(EXPANDED_W, EXPANDED_H)
+      setIgnore(false)
+    } else {
+      window.focusApi.widgetResize(COMPACT_W, COMPACT_H)
+      // 收起后延迟恢复穿透
+      setTimeout(() => setIgnore(true), 100)
+    }
+  }, [expanded, setIgnore])
+
   if (!snapshot) {
     return (
-      <div className="widget-root loading">
-        <div className="widget-pet">🛡️</div>
+      <div className="widget-root loading" ref={rootRef}>
+        <div className="widget-pet-body">🛡️</div>
       </div>
     )
   }
@@ -59,38 +110,47 @@ export default function Widget(): JSX.Element {
   const pomoRemain = pomodoro.phase !== 'stopped' ? formatTime(pomodoro.remainingSeconds) : null
   const intensityColor = INTENSITY_COLOR[intensity.level]
 
-  const handleClick = () => setExpanded(!expanded)
-  const handleOpenMain = () => {
-    window.focusApi.showMain()
-  }
-
   return (
-    <div className={`widget-root state-${state} ${expanded ? 'expanded' : 'compact'}`}>
-      {/* 拖拽区域 */}
-      <div className="widget-drag-handle" />
-
+    <div
+      className={`widget-root state-${state} ${expanded ? 'expanded' : 'compact'}`}
+      ref={rootRef}
+    >
       {/* 公仔主体 */}
-      <div className="widget-pet" onClick={handleClick}>
-        <span className="pet-char">{petEmoji}</span>
-        <span className="pet-state-badge">{stateEmoji}</span>
-        {/* 强度环 */}
-        <svg className="intensity-ring" viewBox="0 0 100 100">
-          <circle
-            className="ring-bg"
-            cx="50" cy="50" r="44"
-            fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6"
-          />
-          <circle
-            className="ring-fill"
-            cx="50" cy="50" r="44"
-            fill="none"
-            stroke={intensityColor}
-            strokeWidth="6"
-            strokeDasharray={`${intensity.score * 2.76} 276`}
-            strokeLinecap="round"
-            transform="rotate(-90 50 50)"
-          />
-        </svg>
+      <div className="widget-pet-container">
+        <div className="widget-pet-body" onClick={toggleExpand}>
+          <span className="pet-char">{petEmoji}</span>
+          <span className="pet-state-badge">{stateEmoji}</span>
+          {/* 强度环 */}
+          <svg className="intensity-ring" viewBox="0 0 100 100">
+            <circle
+              className="ring-bg"
+              cx="50" cy="50" r="44"
+              fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6"
+            />
+            <circle
+              className="ring-fill"
+              cx="50" cy="50" r="44"
+              fill="none"
+              stroke={intensityColor}
+              strokeWidth="6"
+              strokeDasharray={`${intensity.score * 2.76} 276`}
+              strokeLinecap="round"
+              transform="rotate(-90 50 50)"
+            />
+          </svg>
+        </div>
+
+        {/* 拖拽手柄：左下角小图标 */}
+        <div className="widget-drag-grip" title="拖动我">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="3" cy="3" r="1.5" fill="rgba(255,255,255,0.5)" />
+            <circle cx="7" cy="3" r="1.5" fill="rgba(255,255,255,0.5)" />
+            <circle cx="3" cy="7" r="1.5" fill="rgba(255,255,255,0.5)" />
+            <circle cx="7" cy="7" r="1.5" fill="rgba(255,255,255,0.5)" />
+            <circle cx="3" cy="11" r="1.5" fill="rgba(255,255,255,0.3)" />
+            <circle cx="7" cy="11" r="1.5" fill="rgba(255,255,255,0.3)" />
+          </svg>
+        </div>
       </div>
 
       {/* 展开面板 */}
@@ -130,7 +190,7 @@ export default function Widget(): JSX.Element {
           </div>
 
           <div className="wp-actions">
-            <button className="wp-btn" onClick={handleOpenMain} title="打开主窗口">
+            <button className="wp-btn" onClick={() => window.focusApi.showMain()} title="打开主窗口">
               📊
             </button>
             <button

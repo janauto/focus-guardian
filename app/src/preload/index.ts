@@ -18,6 +18,10 @@ const api: FocusAPI = {
   resetToday: () => ipcRenderer.invoke('app:resetToday') as Promise<void>,
   showMain: () => ipcRenderer.invoke('app:showMain') as Promise<void>,
   toggleWidget: () => ipcRenderer.invoke('app:toggleWidget') as Promise<void>,
+  widgetSetMouseIgnore: (ignore: boolean) =>
+    ipcRenderer.invoke('widget:setMouseIgnore', ignore) as Promise<void>,
+  widgetResize: (w: number, h: number) =>
+    ipcRenderer.invoke('widget:resize', w, h) as Promise<void>,
   onSnapshot(cb) {
     const handler = (_e: unknown, s: AppSnapshot) => cb(s)
     ipcRenderer.on('snapshot', handler)
