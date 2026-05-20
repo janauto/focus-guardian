@@ -36,8 +36,8 @@ const INTENSITY_COLOR: Record<IntensitySnapshot['level'], string> = {
 
 const COMPACT_W = 88
 const COMPACT_H = 88
-const EXPANDED_W = 200
-const EXPANDED_H = 320
+const EXPANDED_W = 188  // 面板 176 + 左右 padding 6*2
+const EXPANDED_H = 340  // 公仔 88 + 面板 ~240 + gap
 
 export default function Widget(): JSX.Element {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null)

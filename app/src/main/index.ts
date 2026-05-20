@@ -179,7 +179,8 @@ function registerIpc(c: Controller): void {
   ipcMain.handle('widget:resize', (_e, w: number, h: number) => {
     if (widgetWindow && !widgetWindow.isDestroyed()) {
       const bounds = widgetWindow.getBounds()
-      const dx = w - bounds.width
+      // 从公仔中心对称扩展：x 向左偏移 (新宽-旧宽)/2，公仔视觉不动
+      const dx = Math.round((w - bounds.width) / 2)
       const newX = bounds.x - dx
       widgetWindow.setBounds({ x: newX, y: bounds.y, width: w, height: h }, true)
     }
@@ -191,7 +192,8 @@ function registerIpc(c: Controller): void {
       const COMPACT_W = 88
       const COMPACT_H = 88
       if (bounds.width > COMPACT_W) {
-        const dx = bounds.width - COMPACT_W
+        // 收起时对称缩回
+        const dx = Math.round((bounds.width - COMPACT_W) / 2)
         widgetWindow.setBounds(
           { x: bounds.x + dx, y: bounds.y, width: COMPACT_W, height: COMPACT_H },
           true
