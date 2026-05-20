@@ -1,6 +1,6 @@
 // 跨进程共享类型定义
 
-export type FocusState = 'idle' | 'focused' | 'distracted' | 'break'
+export type FocusState = 'idle' | 'focused' | 'distracted' | 'inactive' | 'away' | 'break'
 
 export type AppCategory = 'work' | 'distract' | 'neutral'
 
@@ -50,6 +50,21 @@ export interface Settings {
   pomodoro: PomodoroConfig
   /** 每日专注目标（分钟） */
   dailyGoalMinutes: number
+  /** 交互强度（活跃度）配置 */
+  intensity: IntensityConfig
+}
+
+export interface IntensityConfig {
+  /** 是否启用活跃度检测 */
+  enabled: boolean
+  /** 单次输入事件之后视为"活跃"的秒数（idle < 该值 = 活跃秒） */
+  activeWindowSeconds: number
+  /** 进入"发呆"状态的连续无操作秒数（前台是工作应用，但人没动作） */
+  inactiveAfterSeconds: number
+  /** 进入"离开"状态的连续无操作秒数 */
+  awayAfterSeconds: number
+  /** 强度阈值：低于该值视为"低强度发呆"（0-100） */
+  lowIntensityThreshold: number
 }
 
 export interface DailyStats {
@@ -57,6 +72,10 @@ export interface DailyStats {
   date: string
   focusSeconds: number
   distractSeconds: number
+  /** 发呆/低活跃秒数（前台仍在工作应用，但人无操作） */
+  inactiveSeconds: number
+  /** 离开座位秒数 */
+  awaySeconds: number
   distractCount: number
   pomodorosCompleted: number
   appUsage: Record<string, number>
@@ -92,6 +111,17 @@ export interface AppSnapshot {
   sessionStartedAt: number | null
   /** 距离开始/上次切换状态过去的秒数 */
   stateDurationSeconds: number
+  /** 实时交互强度（0-100，60s 滑窗活跃秒占比） */
+  intensity: IntensitySnapshot
+}
+
+export interface IntensitySnapshot {
+  /** 0-100 */
+  score: number
+  /** 距上次输入的秒数 */
+  idleSeconds: number
+  /** 用于显示的标签 */
+  level: 'high' | 'medium' | 'low' | 'idle' | 'away'
 }
 
 /** 渲染层主动调用的 API（preload 暴露） */

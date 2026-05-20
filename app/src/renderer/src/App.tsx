@@ -8,6 +8,7 @@ import { CurrentApp } from './components/CurrentApp'
 import { Notices } from './components/Notices'
 import { SettingsPanel } from './components/SettingsPanel'
 import { DistractOverlay } from './components/DistractOverlay'
+import { IntensityMeter } from './components/IntensityMeter'
 
 export default function App(): JSX.Element {
   const snapshot = useUI((s) => s.snapshot)
@@ -39,12 +40,17 @@ export default function App(): JSX.Element {
   }
 
   const distractIntensity = useMemo(() => {
-    if (!snapshot || snapshot.state !== 'distracted') return 0
-    const d = snapshot.stateDurationSeconds
-    if (d < 5) return 0.15
-    if (d < 15) return 0.35
-    if (d < 30) return 0.55
-    return 0.8
+    if (!snapshot) return 0
+    if (snapshot.state === 'distracted') {
+      const d = snapshot.stateDurationSeconds
+      if (d < 5) return 0.15
+      if (d < 15) return 0.35
+      if (d < 30) return 0.55
+      return 0.8
+    }
+    if (snapshot.state === 'away') return 0.25
+    if (snapshot.state === 'inactive') return 0.18
+    return 0
   }, [snapshot])
 
   if (!snapshot) {
@@ -70,6 +76,7 @@ export default function App(): JSX.Element {
                 pet={snapshot.pet}
                 stateDurationSeconds={snapshot.stateDurationSeconds}
               />
+              <IntensityMeter intensity={snapshot.intensity} />
               <div className="cta-row">
                 {!isRunning ? (
                   <button className="btn primary" onClick={handleStart}>

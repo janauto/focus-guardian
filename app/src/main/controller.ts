@@ -15,11 +15,13 @@ import { todayKey } from './classifier'
 import { AppStore } from './store'
 import { PomodoroEngine } from './pomodoro'
 import { ActiveWindowWatcher } from './watcher'
+import { IntensityMonitor } from './intensity'
 
 export class Controller {
   private store: AppStore
   private watcher: ActiveWindowWatcher
   private pomodoro: PomodoroEngine
+  private intensity: IntensityMonitor
 
   private state: FocusState = 'idle'
   private active: ActiveWindowInfo | null = null
@@ -29,6 +31,7 @@ export class Controller {
   /** 距离上次扣 XP 的累计分心秒数 */
   private distractAccumSec = 0
   private lastDistractNoticeAt = 0
+  private lastInactiveNoticeAt = 0
   private snapshotPusher: NodeJS.Timeout | null = null
   private win: BrowserWindow | null = null
 
@@ -36,6 +39,7 @@ export class Controller {
     this.store = new AppStore()
     this.watcher = new ActiveWindowWatcher(() => this.store.getSettings(), 1000)
     this.pomodoro = new PomodoroEngine(() => this.store.getSettings().pomodoro)
+    this.intensity = new IntensityMonitor(() => this.store.getSettings().intensity)
 
     this.watcher.on('window', (info) => this.onWindow(info))
     this.watcher.on('error', (err) => console.error('[watcher]', err))
@@ -65,8 +69,9 @@ export class Controller {
   /** 启动专注会话 */
   startSession(): void {
     this.watcher.start()
+    this.intensity.start()
     this.sessionStartedAt = Date.now()
-    this.transition('idle')
+    this.recomputeState()
     if (this.snapshotPusher === null) {
       // 后台周期推送：保证 UI 计时器不漂移
       this.snapshotPusher = setInterval(() => this.tick(), 1000)
@@ -77,6 +82,7 @@ export class Controller {
 
   stopSession(): void {
     this.watcher.stop()
+    this.intensity.stop()
     this.pomodoro.stop()
     this.sessionStartedAt = null
     this.transition('idle')
@@ -146,7 +152,8 @@ export class Controller {
       todayStats: this.todayStats(),
       settings,
       sessionStartedAt: this.sessionStartedAt,
-      stateDurationSeconds: Math.floor((Date.now() - this.stateChangedAt) / 1000)
+      stateDurationSeconds: Math.floor((Date.now() - this.stateChangedAt) / 1000),
+      intensity: this.intensity.getSnapshot()
     }
   }
 
@@ -155,48 +162,83 @@ export class Controller {
   private onWindow(info: ActiveWindowInfo): void {
     this.active = info
     if (!this.sessionStartedAt) return
-    const next: FocusState =
-      this.pomodoro.getState().phase === 'shortBreak' || this.pomodoro.getState().phase === 'longBreak'
-        ? 'break'
-        : info.category === 'distract'
-          ? 'distracted'
-          : 'focused'
+    this.recomputeState()
+  }
+
+  private transition(next: FocusState): void {
+    if (next === this.state) return
+    this.state = next
+    this.stateChangedAt = Date.now()
+    if (next !== 'distracted') this.distractAccumSec = 0
+    this.pushSnapshot()
+  }
+
+  /**
+   * 综合 [窗口 + 番茄钟 + 交互强度] 计算下一个 FocusState。
+   * 优先级：番茄休息 > 离开 > 分心 > 发呆 > 专注。
+   */
+  private recomputeState(): void {
+    if (!this.sessionStartedAt) return
+    const intensity = this.intensity.getSnapshot()
+    const pomoPhase = this.pomodoro.getState().phase
+    const settings = this.store.getSettings()
+
+    let next: FocusState
+    if (pomoPhase === 'shortBreak' || pomoPhase === 'longBreak') {
+      next = 'break'
+    } else if (settings.intensity.enabled && intensity.level === 'away') {
+      next = 'away'
+    } else if (this.active?.category === 'distract') {
+      next = 'distracted'
+    } else if (settings.intensity.enabled && intensity.level === 'idle') {
+      next = 'inactive'
+    } else if (this.active) {
+      next = 'focused'
+    } else {
+      next = this.state === 'idle' ? 'idle' : this.state
+    }
+
     if (next !== this.state) {
-      // 进入分心状态：节流通知
+      // 进入分心：节流通知 + 计数
       if (next === 'distracted') {
-        this.maybeNotifyDistraction(info)
+        this.maybeNotifyDistraction(this.active!)
         const day = this.todayStats()
         day.distractCount += 1
         this.store.setDay(day)
       }
+      // 进入发呆：温和提示
+      if (next === 'inactive') this.maybeNotifyInactive()
       this.transition(next)
     }
   }
 
-  private transition(next: FocusState): void {
-    this.state = next
-    this.stateChangedAt = Date.now()
-    if (next !== 'distracted') this.distractAccumSec = 0
-    // 推送
-    this.pushSnapshot()
-  }
-
-  /** 每秒 tick：累加专注 / 分心时长，扣血或加经验 */
+  /** 每秒 tick：推进状态机，累加各种时长，发放/扣除 XP */
   private tick(): void {
     if (!this.sessionStartedAt) return
+    // 1. 强度采样在 IntensityMonitor 自己的 timer 中，但我们每秒都要重算状态
+    this.recomputeState()
+
     const day = this.todayStats()
     const settings = this.store.getSettings()
+    const intensity = this.intensity.getSnapshot()
 
     if (this.state === 'focused') {
       day.focusSeconds += 1
       if (this.active?.app) {
         day.appUsage[this.active.app] = (day.appUsage[this.active.app] ?? 0) + 1
       }
-      // 每分钟 +1 XP
-      if (day.focusSeconds % 60 === 0) this.awardXp(1)
-      // 连续 30min 额外奖励 50XP
-      if (day.focusSeconds > 0 && day.focusSeconds % 1800 === 0) this.awardXp(50, '连续专注 30 分钟')
-      // 累计专注秒数
+      // 每分钟根据强度发 XP：高 1.0、中 0.5、低 0.2
+      if (day.focusSeconds % 60 === 0) {
+        const mult =
+          intensity.level === 'high' ? 1.0 : intensity.level === 'medium' ? 0.5 : 0.2
+        const xp = Math.max(1, Math.round(60 * mult))
+        this.awardXp(xp)
+      }
+      // 连续专注 30min 额外奖励
+      if (day.focusSeconds > 0 && day.focusSeconds % 1800 === 0) {
+        this.awardXp(50, '连续专注 30 分钟')
+      }
+      // 累计专注秒数（公仔成长）
       const pet = this.store.getPet()
       pet.totalFocusSeconds += 1
       pet.stage = stageForFocusSeconds(pet.totalFocusSeconds)
@@ -208,7 +250,6 @@ export class Controller {
       if (this.active?.app) {
         day.appUsage[this.active.app] = (day.appUsage[this.active.app] ?? 0) + 1
       }
-      // 超过宽容期，每 60 秒扣 10XP
       if (
         this.distractAccumSec > settings.distractGraceSeconds &&
         this.distractAccumSec % 60 === 0
@@ -216,6 +257,20 @@ export class Controller {
         this.awardXp(-10, '分心扣经验')
         const pet = this.store.getPet()
         pet.mood = 'sick'
+        this.store.setPet(pet)
+      }
+    } else if (this.state === 'inactive') {
+      day.inactiveSeconds += 1
+      // 不扣 XP，但每 5 分钟提示一次
+      if (day.inactiveSeconds > 0 && day.inactiveSeconds % 300 === 0) {
+        this.sendNotice('inactive', '已经发呆 5 分钟了，要不要起来动一动？')
+      }
+    } else if (this.state === 'away') {
+      day.awaySeconds += 1
+      // 离开期间公仔变期待
+      const pet = this.store.getPet()
+      if (pet.mood !== 'expecting') {
+        pet.mood = 'expecting'
         this.store.setPet(pet)
       }
     }
@@ -252,6 +307,18 @@ export class Controller {
     this.lastDistractNoticeAt = now
     this.notify('公仔在担心你', `检测到分心应用：${info.app}，回到工作吧`)
     this.sendNotice('distract', `检测到分心：${info.app}`)
+  }
+
+  private maybeNotifyInactive(): void {
+    const now = Date.now()
+    const settings = this.store.getSettings()
+    // 与分心提醒同强度
+    const cooldown =
+      settings.reminderLevel === 'gentle' ? 5 * 60_000 : settings.reminderLevel === 'strict' ? 90_000 : 3 * 60_000
+    if (now - this.lastInactiveNoticeAt < cooldown) return
+    this.lastInactiveNoticeAt = now
+    this.notify('看屏幕走神了？', '一段时间没有键盘鼠标操作，是不是在发呆？')
+    this.sendNotice('inactive', '检测到长时间无操作，可能在发呆')
   }
 
   private notify(title: string, body: string): void {

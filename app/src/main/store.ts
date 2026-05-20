@@ -55,7 +55,14 @@ const DEFAULT_SETTINGS: Settings = {
     longBreakMinutes: 15,
     pomodorosUntilLongBreak: 4
   },
-  dailyGoalMinutes: 120
+  dailyGoalMinutes: 120,
+  intensity: {
+    enabled: true,
+    activeWindowSeconds: 2,
+    inactiveAfterSeconds: 60,
+    awayAfterSeconds: 180,
+    lowIntensityThreshold: 15
+  }
 }
 
 const DEFAULT_PET: PetState = {
@@ -84,7 +91,13 @@ export class AppStore {
   }
 
   getSettings(): Settings {
-    return { ...DEFAULT_SETTINGS, ...this.store.get('settings') }
+    const stored = this.store.get('settings') as Partial<Settings> | undefined
+    return {
+      ...DEFAULT_SETTINGS,
+      ...stored,
+      pomodoro: { ...DEFAULT_SETTINGS.pomodoro, ...(stored?.pomodoro ?? {}) },
+      intensity: { ...DEFAULT_SETTINGS.intensity, ...(stored?.intensity ?? {}) }
+    }
   }
 
   setSettings(s: Settings): void {
@@ -101,11 +114,14 @@ export class AppStore {
 
   getDay(date: string): DailyStats {
     const history = this.store.get('history') as Record<string, DailyStats>
+    const day = history[date]
     return (
-      history[date] ?? {
+      day ?? {
         date,
         focusSeconds: 0,
         distractSeconds: 0,
+        inactiveSeconds: 0,
+        awaySeconds: 0,
         distractCount: 0,
         pomodorosCompleted: 0,
         appUsage: {}

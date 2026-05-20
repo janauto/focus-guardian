@@ -90,6 +90,74 @@ export function SettingsPanel({ settings }: Props): JSX.Element {
       </div>
 
       <div className="card">
+        <h3>⚡ 交互强度（活跃度）</h3>
+        <p className="hint">
+          检测键盘鼠标输入频率，识别"看着屏幕但没动作"的发呆和"长时间离开"的状态。仅使用系统空闲计时，不记录按键内容。
+        </p>
+        <div className="form-row">
+          <label>启用强度检测</label>
+          <input
+            type="checkbox"
+            checked={settings.intensity.enabled}
+            onChange={(e) =>
+              update({ intensity: { ...settings.intensity, enabled: e.target.checked } })
+            }
+          />
+        </div>
+        <div className="form-row">
+          <label>发呆判定（秒）</label>
+          <input
+            type="number"
+            min={20}
+            max={600}
+            value={settings.intensity.inactiveAfterSeconds}
+            onChange={(e) =>
+              update({
+                intensity: {
+                  ...settings.intensity,
+                  inactiveAfterSeconds: Number(e.target.value) || 60
+                }
+              })
+            }
+          />
+        </div>
+        <div className="form-row">
+          <label>离开判定（秒）</label>
+          <input
+            type="number"
+            min={60}
+            max={1800}
+            value={settings.intensity.awayAfterSeconds}
+            onChange={(e) =>
+              update({
+                intensity: {
+                  ...settings.intensity,
+                  awayAfterSeconds: Number(e.target.value) || 180
+                }
+              })
+            }
+          />
+        </div>
+        <div className="form-row">
+          <label>低强度阈值</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={settings.intensity.lowIntensityThreshold}
+            onChange={(e) =>
+              update({
+                intensity: {
+                  ...settings.intensity,
+                  lowIntensityThreshold: Number(e.target.value) || 15
+                }
+              })
+            }
+          />
+        </div>
+      </div>
+
+      <div className="card">
         <h3>🎯 专注偏好</h3>
         <div className="form-row">
           <label>每日目标（分钟）</label>

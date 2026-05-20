@@ -31,15 +31,19 @@ function PetSprite(props: { stage: PetState['stage']; state: FocusState; mood: P
   const overlay =
     state === 'distracted'
       ? '😟'
-      : state === 'focused'
-        ? '✨'
-        : state === 'break'
-          ? '😌'
-          : mood === 'sick'
-            ? '🤒'
-            : mood === 'happy'
-              ? '😊'
-              : '💤'
+      : state === 'inactive'
+        ? '🥱'
+        : state === 'away'
+          ? '👻'
+          : state === 'focused'
+            ? '✨'
+            : state === 'break'
+              ? '😌'
+              : mood === 'sick'
+                ? '🤒'
+                : mood === 'happy'
+                  ? '😊'
+                  : '💤'
 
   return (
     <div className={`pet-sprite state-${state} mood-${mood}`}>
@@ -63,9 +67,13 @@ export function Pet({ state, pet, stateDurationSeconds }: Props): JSX.Element {
       ? `专注中 · ${formatDuration(stateDurationSeconds)}`
       : state === 'distracted'
         ? `分心警告 · ${formatDuration(stateDurationSeconds)}`
-        : state === 'break'
-          ? '正在休息'
-          : '尚未开始'
+        : state === 'inactive'
+          ? `发呆中 · ${formatDuration(stateDurationSeconds)}`
+          : state === 'away'
+            ? `已离开 · ${formatDuration(stateDurationSeconds)}`
+            : state === 'break'
+              ? '正在休息'
+              : '尚未开始'
 
   return (
     <div className="pet">

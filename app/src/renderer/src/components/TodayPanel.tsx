@@ -8,6 +8,8 @@ interface Props {
 export function TodayPanel({ stats, settings }: Props): JSX.Element {
   const focusMin = Math.floor(stats.focusSeconds / 60)
   const distractMin = Math.floor(stats.distractSeconds / 60)
+  const inactiveMin = Math.floor((stats.inactiveSeconds ?? 0) / 60)
+  const awayMin = Math.floor((stats.awaySeconds ?? 0) / 60)
   const goalMin = settings.dailyGoalMinutes
   const goalPct = Math.min(100, Math.round((focusMin / Math.max(1, goalMin)) * 100))
 
@@ -32,21 +34,25 @@ export function TodayPanel({ stats, settings }: Props): JSX.Element {
 
       <div className="today-grid">
         <div className="metric">
-          <div className="metric-num">{focusMin}m</div>
-          <div className="metric-label">专注</div>
+          <div className="metric-num good">{focusMin}m</div>
+          <div className="metric-label">真专注</div>
         </div>
         <div className="metric">
           <div className="metric-num warn">{distractMin}m</div>
           <div className="metric-label">分心</div>
         </div>
         <div className="metric">
-          <div className="metric-num">{stats.distractCount}</div>
-          <div className="metric-label">分心次数</div>
+          <div className="metric-num neutral">{inactiveMin}m</div>
+          <div className="metric-label">发呆</div>
         </div>
         <div className="metric">
-          <div className="metric-num">{stats.pomodorosCompleted}</div>
-          <div className="metric-label">番茄钟</div>
+          <div className="metric-num neutral">{awayMin}m</div>
+          <div className="metric-label">离开</div>
         </div>
+      </div>
+
+      <div className="today-sub">
+        分心 {stats.distractCount} 次 · 完成 {stats.pomodorosCompleted} 个番茄钟
       </div>
 
       <div className="today-goal">

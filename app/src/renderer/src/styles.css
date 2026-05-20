@@ -772,3 +772,82 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: #2a3a5e;
 }
+
+
+/* ========== Intensity Meter ========== */
+
+.intensity-meter {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.im-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.im-title {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.im-pill {
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+
+.im-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.im-fill {
+  height: 100%;
+  transition: width 0.4s ease, background 0.4s ease;
+}
+
+.im-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* 新增：状态颜色变体（focused 时，强度低 -> Pet 头像加微光暗） */
+.pet-sprite.state-inactive .pet-base {
+  animation: pet-doze 4s ease-in-out infinite;
+  filter: drop-shadow(0 6px 12px rgba(245, 158, 11, 0.25)) brightness(0.85);
+}
+.pet-sprite.state-away .pet-base {
+  animation: none;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4)) saturate(0.4) brightness(0.6);
+}
+
+@keyframes pet-doze {
+  0%, 100% { transform: rotate(-2deg) translateY(0); }
+  50% { transform: rotate(2deg) translateY(-3px); }
+}
+
+/* TodayPanel 数值色 */
+.metric-num.good { color: var(--success); }
+.metric-num.neutral { color: var(--text-3); }
+
+.today-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: -6px 0 14px;
+}
+
+/* notice 类型 */
+.notice-inactive {
+  border-color: rgba(249, 115, 22, 0.4);
+  background: rgba(249, 115, 22, 0.1);
+}
