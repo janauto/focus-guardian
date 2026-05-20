@@ -47,7 +47,8 @@ function createWindow(): BrowserWindow {
 
 function createWidgetWindow(): BrowserWindow {
   const { width: screenW } = screen.getPrimaryDisplay().workAreaSize
-  const WIDGET_W = 88 // compact 模式宽度（公仔 72 + padding）
+  // 窗口宽度始终固定，展开/收起只改高度，避免公仔左右跳动
+  const WIDGET_W = 188
   const WIDGET_H = 88
   const win = new BrowserWindow({
     width: WIDGET_W,
@@ -176,26 +177,21 @@ function registerIpc(c: Controller): void {
     }
   })
   // 悬浮窗尺寸调整（展开/收起时），保持公仔右上角位置不变
-  ipcMain.handle('widget:resize', (_e, w: number, h: number) => {
+  // 悬浮窗尺寸调整：只改高度，宽度和 x 坐标不动，公仔不跳
+  ipcMain.handle('widget:resize', (_e, _w: number, h: number) => {
     if (widgetWindow && !widgetWindow.isDestroyed()) {
       const bounds = widgetWindow.getBounds()
-      // 从公仔中心对称扩展：x 向左偏移 (新宽-旧宽)/2，公仔视觉不动
-      const dx = Math.round((w - bounds.width) / 2)
-      const newX = bounds.x - dx
-      widgetWindow.setBounds({ x: newX, y: bounds.y, width: w, height: h }, true)
+      widgetWindow.setBounds({ x: bounds.x, y: bounds.y, width: bounds.width, height: h }, true)
     }
   })
-  // 悬浮窗失焦自动折叠
+  // 悬浮窗失焦自动折叠：只缩高度
   ipcMain.handle('widget:blur', () => {
     if (widgetWindow && !widgetWindow.isDestroyed()) {
       const bounds = widgetWindow.getBounds()
-      const COMPACT_W = 88
       const COMPACT_H = 88
-      if (bounds.width > COMPACT_W) {
-        // 收起时对称缩回
-        const dx = Math.round((bounds.width - COMPACT_W) / 2)
+      if (bounds.height > COMPACT_H) {
         widgetWindow.setBounds(
-          { x: bounds.x + dx, y: bounds.y, width: COMPACT_W, height: COMPACT_H },
+          { x: bounds.x, y: bounds.y, width: bounds.width, height: COMPACT_H },
           true
         )
       }
@@ -237,10 +233,10 @@ function registerIpc(c: Controller): void {
       const bounds = widgetWindow.getBounds()
       const display = screen.getDisplayMatching(bounds)
       const work = display.workArea
-      const COMPACT_W = 88
+      const WIDGET_W = 188
       const COMPACT_H = 88
-      const newX = work.x + work.width - COMPACT_W - 8
-      widgetWindow.setBounds({ x: newX, y: bounds.y, width: COMPACT_W, height: COMPACT_H }, true)
+      const newX = work.x + work.width - WIDGET_W - 8
+      widgetWindow.setBounds({ x: newX, y: bounds.y, width: WIDGET_W, height: COMPACT_H }, true)
       widgetWindow.webContents.send('widget:docked', false)
     }
   })
